@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Https Helper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f0f0f0;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        input, button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        input {
+            width: 300px;
+        }
+        button {
+            width: 150px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .copy-button {
+            margin-top: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .copy-button:hover {
+            background-color: #218838;
+        }
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .popup.show {
+            display: block;
+        }
+        .popup .checkmark, .popup .error-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 10px;
+            font-size: 24px;
+            color: white;
+        }
+        .popup .checkmark {
+            background-color: #28a745;
+        }
+        .popup .error-icon {
+            background-color: #dc3545;
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Https Helper</h1>
+        <input type="text" id="urlInput" placeholder="Enter URL here" />
+        <div>
+            <button onclick="addUrl()">Add URL</button>
+            <button onclick="deleteUrl()">Delete URL</button>
+        </div>
+    </div>
+    <div id="popup" class="popup">
+        <div class="checkmark">✔</div>
+        <div class="error-icon">✘</div>
+        <p id="popupMessage"></p>
+        <button class="copy-button" onclick="copyToClipboard()">Copy</button>
+        <button onclick="closePopup()">Close</button>
+    </div>
+    <script>
+        function addUrl() {
+            const url = document.getElementById('urlInput').value;
+            if (url) {
+                fetch(`/url?url=${encodeURIComponent(url)}`)
+                    .then(response => response.text().then(data => ({
+                        data,
+                        isSuccess: response.ok,
+                        fullUrl: response.ok ? data.split("\n")[1].trim() : '' // استخراج الرابط من النص المرسل من الخادم
+                    })))
+                    .then(({ data, isSuccess, fullUrl }) => showPopup(data, fullUrl, isSuccess))
+                    .catch(error => showPopup("Error: Something went wrong!", "", false)); // عرض النافذة المنبثقة عند حدوث خطأ
+            } else {
+                showPopup("Please enter a URL.", "", false); // عرض النافذة المنبثقة إذا لم يتم إدخال رابط
+            }
+        }
+
+        function deleteUrl() {
+            const url = document.getElementById('urlInput').value;
+            if (url) {
+                fetch(`/url?delete=${encodeURIComponent(url)}`)
+                    .then(response => response.text().then(data => ({
+                        data,
+                        isSuccess: response.ok
+                    })))
+                    .then(({ data, isSuccess }) => showPopup(data, "", isSuccess)) // عرض النافذة المنبثقة بناءً على نجاح أو فشل الحذف
+                    .catch(error => showPopup("Error: Something went wrong!", "", false)); // عرض النافذة المنبثقة عند حدوث خطأ
+            } else {
+                showPopup("Please enter a URL to delete.", "", false); // عرض النافذة المنبثقة إذا لم يتم إدخال رابط للحذف
+            }
+        }
+
+        function showPopup(message, finalUrl, isSuccess) {
+            const popup = document.getElementById('popup');
+            const popupMessage = document.getElementById('popupMessage');
+            const checkmark = popup.querySelector('.checkmark');
+            const errorIcon = popup.querySelector('.error-icon');
+            const copyButton = popup.querySelector('.copy-button');
+
+            popupMessage.textContent = message;
+
+            if (isSuccess) {
+                checkmark.style.display = 'flex';
+                errorIcon.style.display = 'none';
+                copyButton.style.display = finalUrl ? 'inline-block' : 'none';
+                popup.dataset.url = finalUrl;  // تخزين الرابط المرجع النهائي فقط إذا كانت العملية ناجحة
+            } else {
+                checkmark.style.display = 'none';
+                errorIcon.style.display = 'flex';
+                copyButton.style.display = 'none';
+                popup.dataset.url = '';  // عدم تخزين أي رابط في حالة الفشل
+            }
+
+            popup.classList.add('show');
+        }
+
+        function copyToClipboard() {
+            const popup = document.getElementById('popup');
+            const url = popup.dataset.url;
+            if (url) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Copied to clipboard!');
+                }).catch(err => {
+                    console.error('Could not copy text: ', err);
+                });
+            }
+        }
+
+        function closePopup() {
+            const popup = document.getElementById('popup');
+            popup.style.animation = "fadeOut 0.5s";  // إضافة تأثير fadeOut
+            setTimeout(() => {
+                popup.classList.remove('show');
+                popup.style.animation = "";  // إعادة تعيين الرسوم المتحركة بعد الإغلاق
+            }, 500);  // تأخير 500 مللي ثانية قبل إغلاق النافذة
+        }
+    </script>
+</body>
+</html>
